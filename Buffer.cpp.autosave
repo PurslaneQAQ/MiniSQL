@@ -1,0 +1,97 @@
+#ifndef BUFFER_CPP
+#define BUFFER_CPP
+
+#include "Buffer.h"
+
+/*Page::Page():
+file_name(""),
+block_id(-1),
+pin_count(-1),
+dirty(false),
+ref(false),
+avaliable(true)
+{
+    for (int i = 0;i < BLOCK_LEN;i++) 
+        buffer_[i] = '\0';
+}
+// 初始化*/
+
+BUFFER::BUFFER()
+{
+    bufferBlock = new BUFFER_BLOCK_HEADER;
+    initializeBlock(bufferBlock);
+}
+
+BUFFER::BUFFER_BLOCK_HEADER& OfferFreeBlock()
+{
+	BUFFER_BLOCK_HEADER* least_recent_block = bufferBlock;
+    BUFFER_BLOCK_HEADER* last_block, recent_block = bufferBlock;
+	for (int count = 1; count < MAX_BLOCK, recent_block != NULL; count++){
+		if (!recent_block->dirtyBit){
+			initialize(recent_block);
+			return recent_block;
+		}
+		else if (least_recent_block->iTime > recent_block->iTime){
+			least_recent_block = recent_block;
+		}
+        last_block = recent_block;
+        recent_block = recent_block->next;
+	}
+	//执行到这里，最不常访问的block下标为least_recent_block
+    
+    if(count < MAX_BLOCK){
+        recent_block = new BUFFER_BLOCK_HEADER;
+        initialize(recent_block);
+        last_block->next = recent_block;
+        return recent_block;
+    }   
+    /************待补全，真的用链表吗***********/
+    flashBack(least_recent_block);
+	//bufferBlock[least_recent_block].isValid = 1;
+	return least_recent_block;
+}
+
+//BUFFER::BUFFER_BLOCK_HEADER& OfferReplacedBlock(BUFFER_REPLACE_STRATEGY BRS){} //并不是很清楚在干嘛
+
+void BUFFER::flashBack(int bufferNum)
+{
+	if(!bufferBlock[bufferNum].isWritten) return;//如果没有被改写
+	//被改写
+	string filename = bufferBlock[bufferNum].filename;
+	//fstream fout;
+	FILE *fp;
+	if ((fp = fopen(filename.c_str(),"r+b"))==NULL	){
+		cout << "Open file error!" << endl; // #Todo
+		return;
+	}
+	fseek(fp, BLOCKSIZE*bufferBlock[bufferNum].blockOffset, SEEK_SET);
+	fwrite(bufferBlock[bufferNum].values, BLOCKSIZE, 1, fp);
+	bufferBlock[bufferNum].initialize();
+	fclose(fp);
+	/*fout.open(filename.c_str(), ios::in | ios::out);
+	fout.seekp(BLOCKSIZE*bufferBlock[bufferNum].blockOffset, fout.beg);
+	fout.write(bufferBlock[bufferNum].values, BLOCKSIZE);
+	bufferBlock[bufferNum].initialize();
+	fout.close();*/
+}
+
+// Check if the file is in the block, ruturn the existed block or allocate one
+BUFFER_BLOCK_HEADER& FileIntoFreeBlock(const FILE_HEADER &file_info);
+BUFFER_BLOCK_HEADER& FileIntoReplacedBlock(const FILE_HEADER &file_info, BUFFER_REPLACE_STRATEGY BRS);
+
+FILE_HEADER& GetFileInfo(const QString &file_name); // create one when not existing
+TABLE& ReadTable(const QString &table_name, const TABLE_HEADER &table_info);
+INDEX_LIST& ReadIndex(const QString &index_name, const INDEX_HEADER &index_info);
+
+bool SaveBlockToFile(BUFFER_BLOCK_HEADER& Block);
+// all above need to return file names for sake of CATALOG
+const QString& SaveTableToFile(const QString &table_name, const TABLE_HEADER &table_info);
+const QString& SaveIndexToFile(const QString &index_name, const INDEX_HEADER &index_info);
+
+// release memory
+bool CloseTable(TABLE_HEADER &table_info);
+bool CloseIndex(INDEX_HEADER &index_info);
+bool CloseFile(FILE_HEADER &file_info);
+bool CloseDB();
+
+#endif // BUFFER_CPP
