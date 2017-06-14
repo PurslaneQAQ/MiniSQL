@@ -10,14 +10,14 @@
 #define MAX_BLOCK			40		// the max number of the blocks
 
 struct BUFFER_BLOCK_HEADER{
-    int blockNum;               // the block number of the block, which indicate it when it be newed
+    int blockID;                // the block ID of the block, which indicate it when it be newed
     bool dirtyBit;              // 0 -> flase， 1 -> indicate dirty, write back
-    BUFFER_BLOCK_HEADER *next;  // the pointer point to next block
     FILE_HEADER *file;          // the pointer point to the file, which the block belongs to
     int charNum;                // the number of chars in the block
     char *cBlock;            	// the array space for storing the records in the block in buffer
     int iTime;                  // it indicate the age of the block in use
     int lock;                   // prevent the block from replacing
+    //lock属性是用来做什么的orz
 };
 
 struct FILE_HEADER{
@@ -37,12 +37,27 @@ namespace BUFFER{
 class BUFFER
 {
 private:
-    QString DB_Name;
+    //QString DB_Name;
+    BUFFER_BLOCK_HEADER *BlockHead;
+    void initializeBlock(BUFFER_BLOCK_HEADER *Block){
+        Block->blockID = -1;
+        Block->dirtyBit = false;
+        Block->next = NULL;
+        Block->file = NULL;
+        Block->charNum = 0;
+        Block->cBlock = NULL;
+        Block->iTime = 0;
+        Block->lock = 0;
+    }
+    void flashBack(BUFFER_BLOCK_HEADER *Block);
+
+
 public:
     BUFFER();
+    ~BUFFER(){}
 
-    BUFFER_BLOCK_HEADER& OfferFreeBlock();
-    BUFFER_BLOCK_HEADER& OfferReplacedBlock(BUFFER_REPLACE_STRATEGY BRS);
+    BUFFER_BLOCK_HEADER& OfferFreeBlock();//如果找不到
+    //BUFFER_BLOCK_HEADER& OfferReplacedBlock(BUFFER_REPLACE_STRATEGY BRS);
 
     // Check if the file is in the block, ruturn the existed block or allocate one
     BUFFER_BLOCK_HEADER& FileIntoFreeBlock(const FILE_HEADER &file_info);
@@ -53,6 +68,7 @@ public:
     INDEX_LIST& ReadIndex(const QString &index_name, const INDEX_HEADER &index_info);
 
     bool SaveBlockToFile(BUFFER_BLOCK_HEADER& Block);
+
     // all above need to return file names for sake of CATALOG
     const QString& SaveTableToFile(const QString &table_name, const TABLE_HEADER &table_info);
     const QString& SaveIndexToFile(const QString &index_name, const INDEX_HEADER &index_info);
